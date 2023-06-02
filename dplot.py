@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """ dplot.py -- A NWChem dplot block generator
 Usage:
     dplot.py [options]
@@ -26,51 +26,37 @@ Options:
 
 
 def split_mo_list(mos):
-    """
+    '''
     This function converts a string such as '1-2,7,10-20'
     to a sorted list of integers, then outputs that list
-    """
+    '''
     out = []
-    for i in mos.split(","):
-        if "-" in i:
-            sp = i.split("-")
+    for i in mos.split(','):
+        if '-' in i:
+            sp = i.split('-')
             [out.append(x) for x in range(int(sp[0]), int(sp[1]) + 1)]
         else:
             out.append(int(i))
     return sorted(out)
 
-
 def begin_dplot_block(f, args, x, y, z):
-    """
+    '''
     This function writes all necessary info to start a dplot block
-    """
-    f.write("dplot\n")
-    f.write("vectors {0}\n".format(args["--movecs"]))
-    f.write("limitxyz\n")
-    f.write(
-        "{0} {1} {2}\n".format(
-            x[0] - args["--extent"], x[1] + args["--extent"], args["--grid"]
-        )
-    )
-    f.write(
-        "{0} {1} {2}\n".format(
-            y[0] - args["--extent"], y[1] + args["--extent"], args["--grid"]
-        )
-    )
-    f.write(
-        "{0} {1} {2}\n".format(
-            z[0] - args["--extent"], z[1] + args["--extent"], args["--grid"]
-        )
-    )
-    f.write("gaussian\n")
-
+    '''
+    f.write('dplot\n')
+    f.write('vectors {0}\n'.format(args['--movecs']))
+    f.write('limitxyz\n')
+    f.write('{0} {1} {2}\n'.format(x[0]-args['--extent'], x[1]+args['--extent'], args['--grid']))
+    f.write('{0} {1} {2}\n'.format(y[0]-args['--extent'], y[1]+args['--extent'], args['--grid']))
+    f.write('{0} {1} {2}\n'.format(z[0]-args['--extent'], z[1]+args['--extent'], args['--grid']))
+    f.write('gaussian\n')
 
 def end_dplot_block(f):
-    """
+    '''
     This function completes the dplot block
-    """
-    f.write("end\n")
-    f.write("task dplot\n")
+    '''
+    f.write('end\n')
+    f.write('task dplot\n')
 
 
 # Import various functions and libraries
@@ -81,92 +67,59 @@ from os.path import isfile, splitext
 
 try:
     # docopt parses the command line via the doc string above
-    arguments = docopt(__doc__, version="dplot.py version 0.0.1")
-
+    arguments = docopt(__doc__, version='dplot.py version 0.0.1')
+    
     # Input Check 1: Can not use -b/--beta or -a/--alpha-beta with -c/--civecs
     #   No reason to move on if this is incorrect
-    if arguments["--civecs"] and (arguments["--beta"] or arguments["--alpha-beta"]):
-        raise Exception(
-            "Input Error: -b/--beta and -a/--alpha-beta options cannot be used with -c/--civecs option"
-        )
+    if arguments['--civecs'] and (arguments['--beta'] or arguments['--alpha-beta']):
+        raise Exception('Input Error: -b/--beta and -a/--alpha-beta options cannot be used with -c/--civecs option')
 
     # Input Check 2: does '--input' file exists, if not continue to propmt user until they enter a file that exists
     while True:
-        if (
-            not isfile(arguments["--input"])
-            or splitext(arguments["--input"])[-1] != ".nw"
-        ):
-            arguments["--input"] = input(
-                (
-                    "'{0}' does not exist or does not have the expected file extension!\n"
-                    + "Please enter an appropriate input file to continue, or try '-h/--help' option:\n"
-                ).format(arguments["--input"])
-            )
+        if not isfile(arguments['--input']) or splitext(arguments['--input'])[-1] != '.nw':
+            arguments['--input'] = input(("'{0}' does not exist or does not have the expected file extension!\n" + 
+                "Please enter an appropriate input file to continue, or try '-h/--help' option:\n").format(arguments['--input']))
         else:
             break
 
     # Input Check 3: does '--movecs' file exists, if not continue to propmt user until they enter a file that exists
     while True:
-        if (
-            not isfile(arguments["--movecs"])
-            or splitext(arguments["--movecs"])[-1] != ".movecs"
-        ):
-            arguments["--movecs"] = input(
-                (
-                    "'{0}' does not exist or does not have the expected file extension!\n"
-                    + "Please enter an appropriate movecs file to continue, or try '-h/--help' option:\n"
-                ).format(arguments["--movecs"])
-            )
+        if not isfile(arguments['--movecs']) or splitext(arguments['--movecs'])[-1] != '.movecs':
+            arguments['--movecs'] = input(("'{0}' does not exist or does not have the expected file extension!\n"
+                + "Please enter an appropriate movecs file to continue, or try '-h/--help' option:\n").format(arguments['--movecs']))
         else:
             break
 
     # Input Check 4: Conditional, if user wants civecs analysis
     #   does '--civecs' file exist, if not continue to prompt user until they enter a file that exists
-    if arguments["--civecs"]:
+    if arguments['--civecs']:
         while True:
-            if not isfile(arguments["--civecs"]) or splitext(arguments["--civecs"])[
-                -1
-            ] not in [".civecs_singlet", ".civecs_triplet"]:
-                arguments["--civecs"] = input(
-                    (
-                        "'{0}' does not exist or does not have the expected file extension!\n"
-                        + "Please enter an appropriate civecs file to continue, or try '-h/--help' option:\n"
-                    ).format(arguments["--civecs"])
-                )
+            if not isfile(arguments['--civecs']) or splitext(arguments['--civecs'])[-1] not in ['.civecs_singlet', '.civecs_triplet']:
+                arguments['--civecs'] = input(("'{0}' does not exist or does not have the expected file extension!\n"
+                    + "Please enter an appropriate civecs file to continue, or try '-h/--help' option:\n").format(arguments['--civecs']))
             else:
                 break
 
     # Input Check 5: Set default grid value if necessary
-    if not arguments["--grid"]:
-        arguments["--grid"] = "50"
-
+    if not arguments['--grid']:
+        arguments['--grid'] = '50'
+    
     # Input Check 6: Set default extent value if necessary, also convert to float
     #  if you cannot we need to exit
     try:
-        if arguments["--extent"]:
-            arguments["--extent"] = float(arguments["--extent"])
+        if arguments['--extent']:
+            arguments['--extent'] = float(arguments['--extent'])
         else:
-            arguments["--extent"] = 2.0
+            arguments['--extent'] = 2.0
     except ValueError:
-        raise Exception(
-            "Extent Error: The '-e/--extent' option accepts a float value only!"
-        )
+        raise Exception("Extent Error: The '-e/--extent' option accepts a float value only!") 
 
     # Input Check 7: Is density switch set, if yes is it a valid string?
-    if arguments["--density"] and arguments["--density"] not in [
-        "total",
-        "alpha",
-        "beta",
-        "spin",
-    ]:
-        raise Exception(
-            "Density Error: {} is not a valid option, try -h/--help".format(
-                arguments["--density"]
-            )
-        )
-
+    if arguments['--density'] and arguments['--density'] not in ['total', 'alpha', 'beta', 'spin']:
+        raise Exception('Density Error: {} is not a valid option, try -h/--help'.format(arguments['--density']))
+    
     # Input file exists, let's read it
-    with open(arguments["--input"], "r") as f:
+    with open(arguments['--input'], 'r') as f:
         lines = f.readlines()
 
     # We are now in a position to parse the input file:
@@ -176,9 +129,9 @@ try:
     read = False
     x, y, z = [], [], []
     for i in range(0, len(lines)):
-        if "geometry" in lines[i]:
+        if 'geometry' in lines[i]:
             read = True
-        elif "end" in lines[i]:
+        elif 'end' in lines[i]:
             read = False
         if read:
             try:
@@ -195,74 +148,78 @@ try:
     z = [min(z), max(z)]
 
     # We are now in a position to write the 'dplot.nw' file
-    with open("dplot.nw", "w") as f:
+    with open('dplot.nw', 'w') as f:
         # first we add copy the '--input' file to dplot.nw but comment any task directives
         for i in lines:
-            if "task" in i:
-                f.write("#" + i)
+            if 'task' in i:
+                f.write('#' + i)
             else:
                 f.write(i)
-
+        
         # now we can add the dplot blocks!
         #   --> if '--density' is set, we will only process one block
         #   --> need some logic here for the '--alpha-beta' and '--beta' options
-        base = splitext(arguments["--input"])[0]
-        if arguments["--density"]:
-            f.write("\n")
+        base = splitext(arguments['--input'])[0]
+        if arguments['--density']:
+            f.write('\n')
             begin_dplot_block(f, arguments, x, y, z)
             # I hate using the full spindens as an argument, therefore I deal
             #   with the spin case separately (mainly the output format looks like
             #   base-spindens-dens.cube i.e. dumb)
-            if arguments["--density"] == "spin":
-                f.write("spin spindens\n")
-            else:
-                f.write("spin {}\n".format(arguments["--density"]))
-            f.write("output {}-{}-dens.cube\n".format(base, arguments["--density"]))
+            if arguments['--density'] == 'spin':
+                f.write('spin spindens\n')
+            else:    
+                f.write('spin {}\n'.format(arguments['--density']))
+            f.write('output {}-{}-dens.cube\n'.format(base, arguments['--density']))
             end_dplot_block(f)
         else:
-            mos = split_mo_list(arguments["--list"])
-            if arguments["--alpha-beta"]:
-                for spin in ["alpha", "beta"]:
+            mos = split_mo_list(arguments['--list'])
+            if arguments['--alpha-beta']:
+                for spin in ['alpha', 'beta']:
                     for i in mos:
-                        f.write("\n")
+                        num = str(i).zfill(5)
+                        f.write('\n')
                         begin_dplot_block(f, arguments, x, y, z)
-                        f.write("spin {}\n".format(spin))
-                        f.write("orbitals view;1;{}\n".format(i))
-                        f.write("output {}-{}-{}.cube\n".format(base, spin, i))
+                        f.write('spin {}\n'.format(spin))
+                        f.write('orbitals view;1;{}\n'.format(i))
+                        f.write('output {}-{}-{}.cube\n'.format(base, spin, num))
                         end_dplot_block(f)
-            elif arguments["--beta"]:
-                spin = "beta"
+            elif arguments['--beta']:
+                spin = 'beta'
                 for i in mos:
-                    f.write("\n")
+                    num = str(i).zfill(5)
+                    f.write('\n')
                     begin_dplot_block(f, arguments, x, y, z)
-                    f.write("spin {}\n".format(spin))
-                    f.write("orbitals view;1;{}\n".format(i))
-                    f.write("output {}-{}.cube\n".format(base, i))
+                    f.write('spin {}\n'.format(spin))
+                    f.write('orbitals view;1;{}\n'.format(i))
+                    f.write('output {}-{}.cube\n'.format(base, num))
                     end_dplot_block(f)
-            elif arguments["--civecs"]:
+            elif arguments['--civecs']:
                 for i in mos:
-                    f.write("\n")
+                    num = str(i).zfill(5)
+                    f.write('\n')
                     begin_dplot_block(f, arguments, x, y, z)
-                    f.write("root {}\n".format(i))
-                    f.write("output {}-root-{}.cube\n".format(base, i))
-                    f.write("civecs {}\n".format(arguments["--civecs"]))
+                    f.write('root {}\n'.format(i))
+                    f.write('output {}-root-{}.cube\n'.format(base, num))
+                    f.write('civecs {}\n'.format(arguments['--civecs']))
                     end_dplot_block(f)
             else:
-                spin = "alpha"
+                spin = 'alpha'
                 for i in mos:
-                    f.write("\n")
+                    num = str(i).zfill(5)
+                    f.write('\n')
                     begin_dplot_block(f, arguments, x, y, z)
-                    f.write("spin {}\n".format(spin))
-                    f.write("orbitals view;1;{}\n".format(i))
-                    f.write("output {}-{}.cube\n".format(base, i))
+                    f.write('spin {}\n'.format(spin))
+                    f.write('orbitals view;1;{}\n'.format(i))
+                    f.write('output {}-{}.cube\n'.format(base, num))
                     end_dplot_block(f)
 
 # Some common exceptions
 except KeyboardInterrupt:
-    exit("Interrupt Detected! exiting...")
+    exit('Interrupt Detected! exiting...')
 
 except SystemExit:
-    print("==> Input Error: Printing usage, or see documentation! <==")
+    print('==> Input Error: Printing usage, or see documentation! <==')
     print(__doc__)
 
 except Exception as e:
