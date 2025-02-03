@@ -17,12 +17,34 @@ Positional Arguments:
 Options:
     -h, --help                      Print this screen and exit
     -v, --version                   Print the version of dplot.py
+    -o, --output <nwchem.out>       Specify the output file name (auto, set to "no" to disable)
     -b, --beta                      Plot beta MOs instead of alpha (not valid with -c/--civecs)
     -a, --alpha-beta                Plot both alpha and beta MOs (not valid with -c/--civecs)
     -c, --civecs <nwchem.civecs>    Print Transition Densities (TD) instead of MOs
     -g, --grid <value>              Change default grid parameter [default=50]
     -e, --extent <value>            Change default extent of box size [default=2.0]
+
+Note: dplot will find output to define limitXYZ correctly if autosym and center are turned on
 """
+
+def get_limit_xyz_from_output(outfile):
+    x_arr=[]
+    y_arr=[]
+    z_arr=[]
+    with open(outfile,'r') as f:
+        line=f.readline()
+        while "            XYZ format geometry" not in line:
+            line=f.readline()
+        line=f.readline() # Skip ------------------- line
+        line=f.readline() # This line contains number of atoms
+        natom=int(line.split()[0])
+        line=f.readline() # Skip geometry line
+        for i in range(natom):
+            line=f.readline()
+            x_arr.append(float(line.split()[1]))
+            y_arr.append(float(line.split()[2]))
+            z_arr.append(float(line.split()[3]))
+    return min(x_arr), max(x_arr),min(y_arr),max(y_arr),min(z_arr),max(z_arr)
 
 
 def split_mo_list(mos):
@@ -46,9 +68,9 @@ def begin_dplot_block(f, args, x, y, z):
     f.write('dplot\n')
     f.write('vectors {0}\n'.format(args['--movecs']))
     f.write('limitxyz\n')
-    f.write('{0} {1} {2}\n'.format(x[0]-args['--extent'], x[1]+args['--extent'], args['--grid']))
-    f.write('{0} {1} {2}\n'.format(y[0]-args['--extent'], y[1]+args['--extent'], args['--grid']))
-    f.write('{0} {1} {2}\n'.format(z[0]-args['--extent'], z[1]+args['--extent'], args['--grid']))
+    f.write(f'''{x[0]-args['--extent']:.4f} {x[1]+args['--extent']:.4f} {args['--grid']}\n''')
+    f.write(f'''{y[0]-args['--extent']:.4f} {y[1]+args['--extent']:.4f} {args['--grid']}\n''')
+    f.write(f'''{z[0]-args['--extent']:.4f} {z[1]+args['--extent']:.4f} {args['--grid']}\n''')
     f.write('gaussian\n')
 
 def end_dplot_block(f):
@@ -63,6 +85,8 @@ def end_dplot_block(f):
 from docopt import docopt
 from sys import exit
 from os.path import isfile, splitext
+import glob
+import os
 
 
 try:
@@ -118,6 +142,27 @@ try:
     if arguments['--density'] and arguments['--density'] not in ['total', 'alpha', 'beta', 'spin']:
         raise Exception('Density Error: {} is not a valid option, try -h/--help'.format(arguments['--density']))
     
+    # Input Check 8: Does output file exist?
+    if not arguments['--output'] :
+        out_files= [out for out in glob.glob(f"{os.getcwd()}/*.out") if 'dplot.out' not in out]
+        if len(out_files)>1:
+            print("Please specify which output will be used:")
+            for out in out_files:
+                print(out.split('/')[-1], end="  ")
+                print()
+            SystemExit
+        elif len(out_files)==1:
+            arguments['--output']=out_files[0]  # if ONLY 1 output is found and not dplot.out   
+        elif len(out_files)==0:
+            arguments['--output']="no"   # This is set to "none" because there's no output
+    elif arguments['--output'].lower()=="no":  # This "none" comes from user
+        print("Output will not be used to define limitXYZ")
+    else:
+        if not isfile(arguments['--output']):
+            print(f"{arguments['--output']} does not exist")
+            SystemExit
+
+    
     # Input file exists, let's read it
     with open(arguments['--input'], 'r') as f:
         lines = f.readlines()
@@ -128,10 +173,19 @@ try:
     #   x, y, and z will contain the geometric coordinates of our system
     read = False
     x, y, z = [], [], []
+    noautosym = False
+    nocenter = False
+    noprint = False
     for i in range(0, len(lines)):
-        if 'geometry' in lines[i]:
+        if 'geometry' in lines[i].lower():  # .lower() here to normalize the case sensitive. Users may use GEOMETRY rather than geometry. Both are accepted by NWChem
             read = True
-        elif 'end' in lines[i]:
+            if 'noautosym' in lines[i].lower():
+                noautosym = True 
+            if 'nocenter' in lines[i].lower():
+                nocenter = True
+            if 'noprint' in lines[i].lower():
+                noprint= True
+        elif 'end' in lines[i].lower():
             read = False
         if read:
             try:
@@ -143,15 +197,48 @@ try:
                 pass
 
     # We now need to get min and max for each coordinate
-    x = [min(x), max(x)]
-    y = [min(y), max(y)]
-    z = [min(z), max(z)]
-
+    if noprint==False:  # NWChem will print geometry after transformation
+        if arguments['--output'].lower()=="no":  # CASE 1: User does not want to use output or output is not found  
+            if (nocenter and noautosym):
+                x = [min(x),max(x)]
+                y = [min(y),max(y)]
+                z = [min(z),max(z)]
+            else:
+                print('''WARNING: LimitXYZ might be not properly set because NWChem will rotate and/or translate your structure.
+-----------
+Input does not contain "nocenter" and "noautosym" for GEOMETRY block. NWChem will try to rotate and/or translate your structure. No output file was found at current dir.''')
+                r_x = max(x) - min(x)
+                r_y = max(y) - min(y)
+                r_z = max(z) - min(z)
+                x = [-r_x/2.0, r_x/2.0]
+                y = [-r_y/2.0, r_y/2.0]
+                z = [-r_z/2.0, r_z/2.0]
+        else: # CASE 2: Output is available to use
+            xmin,xmax,ymin,ymax,zmin,zmax = get_limit_xyz_from_output(arguments['--output'])
+            x = [xmin,xmax]
+            y = [ymin,ymax]
+            z = [zmin,zmax]
+    else:  # CASE 3: Output might be found, but no geometry "noprint" --> dont try to parse output
+        if (nocenter and noautosym):
+            x = [min(x),max(x)]
+            y = [min(y),max(y)]
+            z = [min(z),max(z)]
+        else:
+            print('''WARNING: LimitXYZ might be not properly set because NWChem will rotate and/or translate your structure.
+-----------
+Input does not contain nocenter and noautosym for GEOMETRY block. NWChem will try to rotate and/or translate your structure. No output file was found at current dir.''')
+            r_x = max(x) - min(x)
+            r_y = max(y) - min(y)
+            r_z = max(z) - min(z)
+            x = [-r_x/2.0, r_x/2.0]
+            y = [-r_y/2.0, r_y/2.0]
+            z = [-r_z/2.0, r_z/2.0]
+    
     # We are now in a position to write the 'dplot.nw' file
     with open('dplot.nw', 'w') as f:
         # first we add copy the '--input' file to dplot.nw but comment any task directives
         for i in lines:
-            if 'task' in i:
+            if 'task' in i.lower():
                 f.write('#' + i)
             else:
                 f.write(i)

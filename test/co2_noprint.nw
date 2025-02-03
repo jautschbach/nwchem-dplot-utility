@@ -1,0 +1,21 @@
+echo
+
+start co2_noprint
+charge 0
+
+geometry noprint
+O 3.82 4.82 5.0
+C 3.0 4.0 5.0
+O 2.18 3.18 5.0
+end
+
+basis spherical
+* library def2-svp
+end
+
+dft
+xc b3lyp
+convergence energy 1e-8
+end
+
+task dft 
